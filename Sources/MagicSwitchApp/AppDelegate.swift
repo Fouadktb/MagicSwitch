@@ -21,10 +21,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func setupStatusItem() {
-    let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-    item.button?.title = "MS"
-    item.button?.target = self
-    item.button?.action = #selector(openMenu)
+    let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    if let button = item.button {
+      button.title = ""
+      button.image = statusBarImage(failed: false)
+      button.imagePosition = .imageOnly
+      button.target = self
+      button.action = #selector(openMenu)
+      button.toolTip = AppConfig.appName
+    }
     statusItem = item
   }
 
@@ -125,7 +130,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let update = {
       self.lastMessage = message
       self.logger.log(message)
-      self.statusItem?.button?.title = message.hasPrefix("Failed") ? "MS!" : "MS"
+      self.updateStatusBarIcon(failed: message.hasPrefix("Failed"))
     }
 
     if Thread.isMainThread {
@@ -154,5 +159,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   @objc private func quit() {
     NSApp.terminate(nil)
+  }
+
+  private func updateStatusBarIcon(failed: Bool) {
+    guard let button = statusItem?.button else {
+      return
+    }
+
+    button.title = ""
+    button.image = statusBarImage(failed: failed)
+    button.imagePosition = .imageOnly
+    button.toolTip = failed ? "\(AppConfig.appName): \(lastMessage)" : AppConfig.appName
+  }
+
+  private func statusBarImage(failed: Bool) -> NSImage? {
+    let symbolName = failed ? "exclamationmark.triangle" : "arrow.left.arrow.right"
+    let description = failed ? "MagicSwitch failed" : "MagicSwitch"
+    let configuration = NSImage.SymbolConfiguration(pointSize: 15, weight: .semibold)
+    let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: description)?
+      .withSymbolConfiguration(configuration)
+    image?.isTemplate = true
+    return image
   }
 }

@@ -16,18 +16,18 @@ This is an early release. It works well for the setup it was built against, but 
 
 ## Install
 
-1. Download `MagicSwitch-v0.1.2.zip` from the release.
+1. Download `MagicSwitch-v0.1.3.zip` from the release.
 2. Unzip it and move `MagicSwitch.app` to `/Applications` on both Macs.
 3. Launch `MagicSwitch.app` on both Macs.
 4. Approve Bluetooth and Local Network permissions when prompted.
-5. Open `MS > Manage Devices...` on each Mac.
+5. Open the MagicSwitch menu bar icon and choose `Manage Devices...` on each Mac.
 6. Click `Scan`, then add the keyboard, trackpad, mouse, or other Bluetooth peripherals you want MagicSwitch to move.
 
 MagicSwitch is ad-hoc signed in the public zip. On first launch, macOS may ask you to confirm that you want to open it.
 
 ## Configure Devices
 
-Most users should configure devices from `MS > Manage Devices...`. The manager lists registered peripherals and available paired, recent, or nearby Bluetooth devices. Use `Add` and `Remove` to choose what MagicSwitch switches.
+Most users should configure devices from the menu bar icon under `Manage Devices...`. The manager lists registered peripherals and available paired, recent, or nearby Bluetooth devices. Use `Add` and `Remove` to choose what MagicSwitch switches.
 
 MagicSwitch reads:
 
@@ -76,7 +76,7 @@ Look for the device address for your keyboard, trackpad, or mouse and paste it i
 
 ## Use
 
-Run MagicSwitch on both Macs. In the menu bar, click `MS`:
+Run MagicSwitch on both Macs. In the menu bar, click the MagicSwitch icon:
 
 - `Switch Devices`: moves the configured devices to the other Mac when they are currently connected locally, or takes them to this Mac otherwise.
 - `Take Devices to This Mac`: asks the peer Mac to release the devices, then connects them here.
@@ -106,13 +106,13 @@ build/MagicSwitch.app
 To create a release zip:
 
 ```zsh
-scripts/package-release.sh 0.1.2
+scripts/package-release.sh 0.1.3
 ```
 
 The zip is written to:
 
 ```text
-dist/MagicSwitch-v0.1.2.zip
+dist/MagicSwitch-v0.1.3.zip
 ```
 
 ## How It Works

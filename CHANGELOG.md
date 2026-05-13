@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3 - 2026-05-13
+
+- Replaced the `MS` menu bar text with a native image-only status bar symbol.
+
 ## 0.1.2 - 2026-05-13
 
 - Fixed cropped smaller app icon representations in the release bundle.
