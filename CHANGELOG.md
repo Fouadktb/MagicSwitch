@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 - 2026-05-13
+
+- Added a basic macOS app icon.
+
 ## 0.1.0 - 2026-05-13
 
 - Initial public release.

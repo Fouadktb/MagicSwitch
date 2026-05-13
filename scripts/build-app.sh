@@ -18,6 +18,7 @@ mkdir -p "$MACOS" "$RESOURCES"
 cp "$BUILD_DIR/MagicSwitch" "$MACOS/MagicSwitch"
 cp "$ROOT/Resources/Info.plist" "$CONTENTS/Info.plist"
 cp "$ROOT/Resources/MagicSwitch.entitlements" "$RESOURCES/MagicSwitch.entitlements"
+cp "$ROOT/Resources/MagicSwitch.icns" "$RESOURCES/MagicSwitch.icns"
 
 codesign --force --deep --sign - --entitlements "$ROOT/Resources/MagicSwitch.entitlements" "$APP_DIR"
 
