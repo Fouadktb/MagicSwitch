@@ -36,7 +36,7 @@ def arrowhead(draw, tip, angle, size, fill):
 
 def draw_icon(size):
     scale = 4
-    canvas_size = size * scale
+    canvas_size = 1024 * scale
     image = Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
 

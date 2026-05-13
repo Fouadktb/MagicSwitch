@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2 - 2026-05-13
+
+- Fixed cropped smaller app icon representations in the release bundle.
+
 ## 0.1.1 - 2026-05-13
 
 - Added a basic macOS app icon.

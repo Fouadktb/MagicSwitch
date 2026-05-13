@@ -16,7 +16,7 @@ This is an early release. It works well for the setup it was built against, but 
 
 ## Install
 
-1. Download `MagicSwitch-v0.1.1.zip` from the release.
+1. Download `MagicSwitch-v0.1.2.zip` from the release.
 2. Unzip it and move `MagicSwitch.app` to `/Applications` on both Macs.
 3. Launch `MagicSwitch.app` on both Macs.
 4. Approve Bluetooth and Local Network permissions when prompted.
@@ -106,13 +106,13 @@ build/MagicSwitch.app
 To create a release zip:
 
 ```zsh
-scripts/package-release.sh 0.1.1
+scripts/package-release.sh 0.1.2
 ```
 
 The zip is written to:
 
 ```text
-dist/MagicSwitch-v0.1.1.zip
+dist/MagicSwitch-v0.1.2.zip
 ```
 
 ## How It Works
