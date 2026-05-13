@@ -20,16 +20,17 @@ This is an early release. It works well for the setup it was built against, but 
 
 ## Install
 
-1. Download `MagicSwitch-v0.1.4.zip` from the release.
-2. Unzip it and move `MagicSwitch.app` to `/Applications` on both Macs.
-3. Launch `MagicSwitch.app` on both Macs.
-4. Approve Bluetooth and Local Network permissions when prompted.
-5. Open the MagicSwitch menu bar icon and choose `Manage Devices...` on each Mac.
-6. Choose the target Mac if more than one peer is discovered.
-7. Click `Scan`, then add the keyboard, trackpad, mouse, or other Bluetooth peripherals you want MagicSwitch to move.
-8. If a fresh Mac does not list the peripherals yet, choose the target Mac and click `Import Peripherals`.
+1. Download `MagicSwitch-v0.1.5.dmg` from the release.
+2. Open the disk image.
+3. Drag `MagicSwitch.app` onto the `Applications` shortcut.
+4. Launch `MagicSwitch.app` from `Applications` on both Macs.
+5. Approve Bluetooth and Local Network permissions when prompted.
+6. Open the MagicSwitch menu bar icon and choose `Manage Devices...` on each Mac.
+7. Choose the target Mac if more than one peer is discovered.
+8. Click `Scan`, then add the keyboard, trackpad, mouse, or other Bluetooth peripherals you want MagicSwitch to move.
+9. If a fresh Mac does not list the peripherals yet, choose the target Mac and click `Import Peripherals`.
 
-MagicSwitch is ad-hoc signed in the public zip. On first launch, macOS may ask you to confirm that you want to open it.
+MagicSwitch is ad-hoc signed in the public disk image. On first launch, macOS may ask you to confirm that you want to open it.
 
 ## macOS Permissions
 
@@ -151,16 +152,17 @@ The app bundle is written to:
 build/MagicSwitch.app
 ```
 
-To create a release zip:
+To create release artifacts:
 
 ```zsh
-scripts/package-release.sh 0.1.4
+scripts/package-release.sh 0.1.5
 ```
 
-The zip is written to:
+The artifacts are written to:
 
 ```text
-dist/MagicSwitch-v0.1.4.zip
+dist/MagicSwitch-v0.1.5.dmg
+dist/MagicSwitch-v0.1.5.zip
 ```
 
 ## How It Works

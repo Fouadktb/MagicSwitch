@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.5 - 2026-05-13
+
+- Added a macOS disk image installer with a drag-to-Applications layout.
+
 ## 0.1.4 - 2026-05-13
 
 - Added target Mac selection for setups with more than two Macs.
