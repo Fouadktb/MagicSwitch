@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="440" viewBox="0 0 720 440">
+  <rect width="720" height="440" fill="#eef3f8"/>
+  <rect x="24" y="22" width="672" height="396" rx="22" fill="#fbfdff" stroke="#cbd5e1" stroke-width="2"/>
+
+  <text x="360" y="64" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700" fill="#1e2630">
+    Install MagicSwitch
+  </text>
+
+  <path
+    d="M260 225 L452 225"
+    fill="none"
+    stroke="#227eee"
+    stroke-width="9"
+    stroke-linecap="round"
+  />
+  <path d="M486 225 L448 204 L456 247 Z" fill="#227eee"/>
+
+  <text x="360" y="354" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#1e2630">
+    Drag MagicSwitch.app to Applications
+  </text>
+  <text x="360" y="380" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#5b6775">
+    Then open it from Applications on each Mac.
+  </text>
+</svg>

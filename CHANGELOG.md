@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.7 - 2026-05-13
+
+- Changed the DMG installer background to use a straight drag arrow.
+
+## 0.1.6 - 2026-05-13
+
+- Rebuilt the DMG installer background from SVG and fixed the install arrow.
+
 ## 0.1.5 - 2026-05-13
 
 - Added a macOS disk image installer with a drag-to-Applications layout.

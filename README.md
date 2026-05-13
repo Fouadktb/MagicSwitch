@@ -20,7 +20,7 @@ This is an early release. It works well for the setup it was built against, but 
 
 ## Install
 
-1. Download `MagicSwitch-v0.1.5.dmg` from the release.
+1. Download `MagicSwitch-v0.1.7.dmg` from the release.
 2. Open the disk image.
 3. Drag `MagicSwitch.app` onto the `Applications` shortcut.
 4. Launch `MagicSwitch.app` from `Applications` on both Macs.
@@ -155,14 +155,14 @@ build/MagicSwitch.app
 To create release artifacts:
 
 ```zsh
-scripts/package-release.sh 0.1.5
+scripts/package-release.sh 0.1.7
 ```
 
 The artifacts are written to:
 
 ```text
-dist/MagicSwitch-v0.1.5.dmg
-dist/MagicSwitch-v0.1.5.zip
+dist/MagicSwitch-v0.1.7.dmg
+dist/MagicSwitch-v0.1.7.zip
 ```
 
 ## How It Works

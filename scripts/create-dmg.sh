@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VERSION="${1:-0.1.5}"
+VERSION="${1:-0.1.7}"
 APP_DIR="$ROOT/build/MagicSwitch.app"
 DIST_DIR="$ROOT/dist"
 STAGING_DIR="$ROOT/build/dmg-staging"
@@ -17,7 +17,7 @@ if [ ! -d "$APP_DIR" ]; then
   "$ROOT/scripts/build-app.sh" >/dev/null
 fi
 
-"$ROOT/scripts/generate-dmg-background.py" >/dev/null
+"$ROOT/scripts/render-dmg-background.sh" >/dev/null
 
 if mount | grep -q "on $MOUNT_DIR "; then
   hdiutil detach "$MOUNT_DIR" -quiet || true
@@ -47,8 +47,13 @@ trap cleanup EXIT
 hdiutil attach "$RW_DMG" -readwrite -noverify -noautoopen -mountpoint "$MOUNT_DIR" >/dev/null
 
 osascript <<APPLESCRIPT
+set volumeFolder to POSIX file "$MOUNT_DIR" as alias
 tell application "Finder"
-  tell disk "$VOLUME_NAME"
+  repeat 30 times
+    if exists folder volumeFolder then exit repeat
+    delay 0.2
+  end repeat
+  tell folder volumeFolder
     open
     set current view of container window to icon view
     set toolbar visible of container window to false
