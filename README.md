@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/magicswitch-icon.png" alt="MagicSwitch app icon" width="128" height="128">
+</p>
+
 # MagicSwitch
 
 MagicSwitch is a tiny macOS menu bar app for switching an Apple Magic Keyboard, Magic Trackpad, or similar Bluetooth devices between two Macs.
