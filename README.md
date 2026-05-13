@@ -29,6 +29,32 @@ This is an early release. It works well for the setup it was built against, but 
 
 MagicSwitch is ad-hoc signed in the public zip. On first launch, macOS may ask you to confirm that you want to open it.
 
+## Troubleshooting
+
+### `"MagicSwitch" Not Opened`
+
+If macOS says it could not verify that MagicSwitch is free of malware, Gatekeeper is blocking the app because the current public build is ad-hoc signed but not notarized yet. Only continue if you downloaded MagicSwitch from the official GitHub release.
+
+You can usually open it from Finder:
+
+1. Open Finder.
+2. Go to `Applications`.
+3. Control-click or right-click `MagicSwitch.app`.
+4. Choose `Open`.
+5. In the warning dialog, choose `Open` again.
+
+If macOS still blocks it:
+
+1. Try opening `MagicSwitch.app` once, so macOS records the block.
+2. Open `System Settings`.
+3. Go to `Privacy & Security`.
+4. Scroll down to `Security`.
+5. Find the message that says `MagicSwitch` was blocked.
+6. Click `Open Anyway`.
+7. Confirm with `Open Anyway` or `Open`.
+
+Apple documents this override flow here: [Open a Mac app from an unknown developer](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac).
+
 ## Configure Devices
 
 Most users should configure devices from the menu bar icon under `Manage Devices...`. The manager lists registered peripherals and available paired, recent, or nearby Bluetooth devices. Use `Add` and `Remove` to choose what MagicSwitch switches.
