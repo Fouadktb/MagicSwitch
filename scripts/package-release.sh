@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VERSION="${1:-0.1.3}"
+VERSION="${1:-0.1.4}"
 DIST_DIR="$ROOT/dist"
 ZIP_PATH="$DIST_DIR/MagicSwitch-v$VERSION.zip"
 

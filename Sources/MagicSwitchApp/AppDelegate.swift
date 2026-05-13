@@ -146,7 +146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   @objc private func manageDevices() {
     if deviceManager == nil {
-      deviceManager = DeviceManagerWindowController(bluetooth: bluetooth)
+      deviceManager = DeviceManagerWindowController(bluetooth: bluetooth, peerService: peerService)
     }
 
     deviceManager?.showWindow(nil)

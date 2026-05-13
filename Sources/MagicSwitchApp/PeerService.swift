@@ -2,7 +2,7 @@ import Foundation
 import MagicSwitchCore
 import Network
 
-struct PeerEndpoint {
+struct PeerEndpoint: Equatable {
   let name: String
   let host: String
   let port: Int
@@ -15,15 +15,26 @@ final class PeerService: NSObject, PeerControlling {
   private var netService: NetService?
   private var browser: NetServiceBrowser?
   private var resolvingServices: [NetService] = []
-  private var peer: PeerEndpoint?
+  private var peersByName: [String: PeerEndpoint] = [:]
   private let localName = Host.current().localizedName ?? ProcessInfo.processInfo.hostName
   private var commandHandler: ((SwitchCommand) async -> OperationReport)?
 
   var peerDescription: String {
-    if let peer {
-      return "\(peer.name) (\(peer.host):\(peer.port))"
+    let snapshot = peerSnapshot()
+    if let peer = selectedPeer(from: snapshot.peers, targetPeerName: snapshot.targetPeerName) {
+      let prefix = snapshot.targetPeerName == nil ? "Auto" : "Target"
+      return "\(prefix): \(peer.name) (\(peer.host):\(peer.port))"
     }
+
+    if snapshot.peers.count > 1 {
+      return "Choose a target Mac"
+    }
+
     return "No peer discovered"
+  }
+
+  var selectedTargetPeerName: String? {
+    AppConfig.loadConfiguration().targetPeerName
   }
 
   func start(commandHandler: @escaping (SwitchCommand) async -> OperationReport) {
@@ -32,12 +43,42 @@ final class PeerService: NSObject, PeerControlling {
     startBrowser()
   }
 
+  func availablePeers() -> [PeerEndpoint] {
+    peerSnapshot().peers
+  }
+
+  func setTargetPeerName(_ targetPeerName: String?) throws {
+    try AppConfig.saveTargetPeerName(targetPeerName)
+  }
+
   func send(_ command: SwitchCommand) async -> OperationReport {
-    guard let peer else {
+    let snapshot = peerSnapshot()
+    guard let peer = selectedPeer(from: snapshot.peers, targetPeerName: snapshot.targetPeerName) else {
+      if snapshot.peers.count > 1 {
+        return OperationReport(ok: false, message: "Multiple peers discovered. Choose a target Mac.")
+      }
       return OperationReport(ok: false, message: "No peer discovered")
     }
 
     return await send(command, to: peer)
+  }
+
+  private func peerSnapshot() -> (peers: [PeerEndpoint], targetPeerName: String?) {
+    let peers = queue.sync {
+      peersByName.values.sorted { lhs, rhs in
+        lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+      }
+    }
+
+    return (peers, AppConfig.loadConfiguration().targetPeerName)
+  }
+
+  private func selectedPeer(from peers: [PeerEndpoint], targetPeerName: String?) -> PeerEndpoint? {
+    if let targetPeerName {
+      return peers.first { $0.name == targetPeerName }
+    }
+
+    return peers.count == 1 ? peers[0] : nil
   }
 
   private func startListener() {
@@ -189,9 +230,9 @@ extension PeerService: NetServiceBrowserDelegate {
   }
 
   func netServiceBrowser(_ browser: NetServiceBrowser, didRemove service: NetService, moreComing: Bool) {
-    if peer?.name == service.name {
-      peer = nil
-      logger.log("Peer removed: \(service.name)")
+    queue.async {
+      self.peersByName[service.name] = nil
+      self.logger.log("Peer removed: \(service.name)")
     }
   }
 }
@@ -209,7 +250,9 @@ extension PeerService: NetServiceDelegate {
     guard sender.name != localName else { return }
     let host = sender.hostName ?? sender.name
     let endpoint = PeerEndpoint(name: sender.name, host: host, port: sender.port)
-    peer = endpoint
-    logger.log("Peer resolved: \(endpoint.name) \(endpoint.host):\(endpoint.port)")
+    queue.async {
+      self.peersByName[endpoint.name] = endpoint
+      self.logger.log("Peer resolved: \(endpoint.name) \(endpoint.host):\(endpoint.port)")
+    }
   }
 }

@@ -4,7 +4,7 @@
 
 # MagicSwitch
 
-MagicSwitch is a tiny macOS menu bar app for switching an Apple Magic Keyboard, Magic Trackpad, or similar Bluetooth devices between two Macs.
+MagicSwitch is a tiny macOS menu bar app for switching an Apple Magic Keyboard, Magic Trackpad, or similar Bluetooth devices between Macs.
 
 It coordinates both Macs over the local network: one Mac releases the configured Bluetooth devices, then the other Mac pairs/connects to them. It is meant for people who keep two Macs on the same desk and want fewer USB cables, hubs, and manual Bluetooth forget/re-pair cycles.
 
@@ -20,14 +20,27 @@ This is an early release. It works well for the setup it was built against, but 
 
 ## Install
 
-1. Download `MagicSwitch-v0.1.3.zip` from the release.
+1. Download `MagicSwitch-v0.1.4.zip` from the release.
 2. Unzip it and move `MagicSwitch.app` to `/Applications` on both Macs.
 3. Launch `MagicSwitch.app` on both Macs.
 4. Approve Bluetooth and Local Network permissions when prompted.
 5. Open the MagicSwitch menu bar icon and choose `Manage Devices...` on each Mac.
-6. Click `Scan`, then add the keyboard, trackpad, mouse, or other Bluetooth peripherals you want MagicSwitch to move.
+6. Choose the target Mac if more than one peer is discovered.
+7. Click `Scan`, then add the keyboard, trackpad, mouse, or other Bluetooth peripherals you want MagicSwitch to move.
+8. If a fresh Mac does not list the peripherals yet, choose the target Mac and click `Import Peripherals`.
 
 MagicSwitch is ad-hoc signed in the public zip. On first launch, macOS may ask you to confirm that you want to open it.
+
+## macOS Permissions
+
+MagicSwitch needs:
+
+- `Bluetooth`: to pair, release, and connect configured peripherals.
+- `Local Network`: to discover and communicate with other Macs running MagicSwitch.
+
+You can review these in `System Settings > Privacy & Security > Bluetooth` and `System Settings > Privacy & Security > Local Network`.
+
+MagicSwitch does not need Remote Login, SSH, Screen Sharing, Accessibility, or Full Disk Access. Remote Login was only useful while developing and installing test builds across two Macs.
 
 ## Troubleshooting
 
@@ -57,7 +70,11 @@ Apple documents this override flow here: [Open a Mac app from an unknown develop
 
 ## Configure Devices
 
-Most users should configure devices from the menu bar icon under `Manage Devices...`. The manager lists registered peripherals and available paired, recent, or nearby Bluetooth devices. Use `Add` and `Remove` to choose what MagicSwitch switches.
+Most users should configure devices from the menu bar icon under `Manage Devices...`.
+
+The `Target Mac` section lists other Macs running MagicSwitch on the same local network. MagicSwitch advertises itself with Bonjour and detects other instances automatically. You do not add MacBooks as devices. If only one peer is discovered, `Auto` is fine. If several Macs are discovered, choose the Mac this one should switch with.
+
+The peripherals sections are only for Bluetooth devices. Use `Add` and `Remove` to choose what MagicSwitch switches. If the keyboard or trackpad is currently only known to the other Mac, choose that Mac as the target and click `Import Peripherals`; MagicSwitch copies the configured peripheral names and Bluetooth addresses from the target Mac.
 
 MagicSwitch reads:
 
@@ -69,6 +86,7 @@ On first launch, MagicSwitch creates a placeholder config at that path. Replace 
 
 ```json
 {
+  "targetPeerName": null,
   "devices": [
     {
       "name": "Magic Keyboard",
@@ -111,7 +129,7 @@ Run MagicSwitch on both Macs. In the menu bar, click the MagicSwitch icon:
 - `Switch Devices`: moves the configured devices to the other Mac when they are currently connected locally, or takes them to this Mac otherwise.
 - `Take Devices to This Mac`: asks the peer Mac to release the devices, then connects them here.
 - `Release Devices from This Mac`: disconnects and removes the local pairings.
-- `Manage Devices...`: add or remove Bluetooth peripherals from the switch list.
+- `Manage Devices...`: choose the target Mac, import peer peripherals, and add or remove Bluetooth peripherals from the switch list.
 - `Open Config`: opens the active config file.
 - `Open Log`: opens the app log.
 
@@ -136,18 +154,18 @@ build/MagicSwitch.app
 To create a release zip:
 
 ```zsh
-scripts/package-release.sh 0.1.3
+scripts/package-release.sh 0.1.4
 ```
 
 The zip is written to:
 
 ```text
-dist/MagicSwitch-v0.1.3.zip
+dist/MagicSwitch-v0.1.4.zip
 ```
 
 ## How It Works
 
-MagicSwitch runs a small TCP listener on each Mac and advertises it with Bonjour as `_magicswitch._tcp`. When switching, the active Mac tells the peer to release or take the configured Bluetooth devices.
+MagicSwitch runs a small TCP listener on each Mac and advertises it with Bonjour as `_magicswitch._tcp`. Other MagicSwitch instances on the same local network discover that service automatically. When switching, the active Mac tells the selected peer to release or take the configured Bluetooth devices.
 
 For each configured Bluetooth device, MagicSwitch uses macOS `IOBluetooth` APIs to:
 

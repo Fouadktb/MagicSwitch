@@ -4,9 +4,12 @@ import MagicSwitchCore
 
 final class DeviceManagerWindowController: NSWindowController {
   private let bluetooth: BluetoothController
+  private let peerService: PeerService
   private let scanner = BluetoothDeviceScanner()
 
   private let statusLabel = NSTextField(labelWithString: "")
+  private let targetPeerPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+  private let importPeerButton = NSButton(title: "Import Peripherals", target: nil, action: nil)
   private let registeredStack = NSStackView()
   private let availableStack = NSStackView()
   private let scanButton = NSButton(title: "Scan", target: nil, action: nil)
@@ -14,11 +17,12 @@ final class DeviceManagerWindowController: NSWindowController {
   private var registeredDevices: [MagicDevice] = []
   private var availableDevices: [BluetoothDeviceCandidate] = []
 
-  init(bluetooth: BluetoothController) {
+  init(bluetooth: BluetoothController, peerService: PeerService) {
     self.bluetooth = bluetooth
+    self.peerService = peerService
 
     let window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 620, height: 460),
+      contentRect: NSRect(x: 0, y: 0, width: 620, height: 560),
       styleMask: [.titled, .closable, .miniaturizable],
       backing: .buffered,
       defer: false
@@ -68,6 +72,7 @@ final class DeviceManagerWindowController: NSWindowController {
     ])
 
     rootStack.addArrangedSubview(makeHeader())
+    rootStack.addArrangedSubview(makeTargetMacSection())
     rootStack.addArrangedSubview(makeSection(title: "Registered Peripherals", stack: registeredStack))
     rootStack.addArrangedSubview(makeSection(title: "Available Peripherals", stack: availableStack))
   }
@@ -97,6 +102,52 @@ final class DeviceManagerWindowController: NSWindowController {
     ])
 
     return row
+  }
+
+  private func makeTargetMacSection() -> NSView {
+    let section = NSStackView()
+    section.orientation = .vertical
+    section.alignment = .leading
+    section.spacing = 8
+    section.translatesAutoresizingMaskIntoConstraints = false
+
+    let title = NSTextField(labelWithString: "Target Mac")
+    title.font = .systemFont(ofSize: 13, weight: .semibold)
+
+    let explanation = NSTextField(
+      wrappingLabelWithString: "MagicSwitch advertises this Mac on your local network and automatically detects other Macs running MagicSwitch. Choose which Mac this one should switch with."
+    )
+    explanation.textColor = .secondaryLabelColor
+    explanation.font = .systemFont(ofSize: 12)
+
+    let row = NSStackView()
+    row.orientation = .horizontal
+    row.alignment = .centerY
+    row.spacing = 10
+
+    targetPeerPopup.target = self
+    targetPeerPopup.action = #selector(targetPeerChanged)
+
+    importPeerButton.target = self
+    importPeerButton.action = #selector(importPeripheralsFromTargetMac)
+    importPeerButton.bezelStyle = .rounded
+
+    row.addArrangedSubview(targetPeerPopup)
+    row.addArrangedSubview(makeSpacer())
+    row.addArrangedSubview(importPeerButton)
+
+    section.addArrangedSubview(title)
+    section.addArrangedSubview(explanation)
+    section.addArrangedSubview(row)
+
+    NSLayoutConstraint.activate([
+      section.widthAnchor.constraint(equalToConstant: 576),
+      explanation.widthAnchor.constraint(equalToConstant: 576),
+      row.widthAnchor.constraint(equalToConstant: 576),
+      targetPeerPopup.widthAnchor.constraint(greaterThanOrEqualToConstant: 260),
+    ])
+
+    return section
   }
 
   private func makeSection(title: String, stack: NSStackView) -> NSView {
@@ -129,6 +180,7 @@ final class DeviceManagerWindowController: NSWindowController {
   private func refreshDevices(scan: Bool) {
     let configuration = AppConfig.loadConfiguration()
     registeredDevices = configuration.devices
+    renderTargetPeers()
 
     if scan {
       statusLabel.stringValue = "Scanning..."
@@ -186,6 +238,29 @@ final class DeviceManagerWindowController: NSWindowController {
         )
       }
     }
+  }
+
+  private func renderTargetPeers() {
+    let selectedTargetPeerName = peerService.selectedTargetPeerName
+    let peers = peerService.availablePeers()
+
+    targetPeerPopup.removeAllItems()
+    targetPeerPopup.addItem(withTitle: "Auto (single discovered Mac)")
+    targetPeerPopup.lastItem?.representedObject = ""
+
+    for peer in peers {
+      targetPeerPopup.addItem(withTitle: peer.name)
+      targetPeerPopup.lastItem?.representedObject = peer.name
+    }
+
+    if let selectedTargetPeerName,
+       let item = targetPeerPopup.itemArray.first(where: { ($0.representedObject as? String) == selectedTargetPeerName }) {
+      targetPeerPopup.select(item)
+    } else {
+      targetPeerPopup.selectItem(at: 0)
+    }
+
+    importPeerButton.isEnabled = !peers.isEmpty
   }
 
   private func makeRow(
@@ -307,6 +382,48 @@ final class DeviceManagerWindowController: NSWindowController {
 
   @objc private func scanDevices() {
     refreshDevices(scan: true)
+  }
+
+  @objc private func targetPeerChanged() {
+    let selected = targetPeerPopup.selectedItem?.representedObject as? String
+    let targetPeerName = selected?.isEmpty == false ? selected : nil
+
+    do {
+      try peerService.setTargetPeerName(targetPeerName)
+      statusLabel.stringValue = targetPeerName == nil ? "Using automatic peer selection" : "Target Mac saved"
+    } catch {
+      statusLabel.stringValue = "Target save failed: \(error.localizedDescription)"
+    }
+  }
+
+  @objc private func importPeripheralsFromTargetMac() {
+    statusLabel.stringValue = "Importing peripherals..."
+    importPeerButton.isEnabled = false
+
+    Task {
+      let report = await peerService.send(.status)
+      await MainActor.run {
+        self.importPeerButton.isEnabled = true
+
+        guard !report.snapshots.isEmpty else {
+          self.statusLabel.stringValue = report.ok ? "Target Mac has no peripherals configured" : report.message
+          return
+        }
+
+        var importedCount = 0
+        for snapshot in report.snapshots {
+          if !self.registeredDevices.contains(where: { $0.address == snapshot.device.address }) {
+            self.registeredDevices.append(snapshot.device)
+            importedCount += 1
+          }
+        }
+
+        self.statusLabel.stringValue = importedCount == 0
+          ? "Peripherals already registered"
+          : "Imported \(importedCount) peripheral(s)"
+        self.persistRegisteredDevices()
+      }
+    }
   }
 
   @objc private func addDevice(_ sender: DeviceActionButton) {

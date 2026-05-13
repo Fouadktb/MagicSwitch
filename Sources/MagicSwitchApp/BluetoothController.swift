@@ -35,6 +35,11 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
     reloadConfiguration()
   }
 
+  func saveTargetPeerName(_ targetPeerName: String?) throws {
+    try AppConfig.saveTargetPeerName(targetPeerName)
+    reloadConfiguration()
+  }
+
   func status() async -> OperationReport {
     await run {
       let devices = self.configuration.devices

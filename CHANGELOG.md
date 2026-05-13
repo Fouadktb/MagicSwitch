@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4 - 2026-05-13
+
+- Added target Mac selection for setups with more than two Macs.
+- Added peripheral import from the selected target Mac, so fresh installs can learn devices that are currently only configured on another Mac.
+- Documented required macOS permissions and clarified that Remote Login is not required.
+
 ## 0.1.3 - 2026-05-13
 
 - Replaced the `MS` menu bar text with a native image-only status bar symbol.

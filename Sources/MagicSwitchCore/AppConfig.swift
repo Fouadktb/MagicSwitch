@@ -27,6 +27,7 @@ public enum AppConfig {
         try sampleConfiguration.write(to: url, atomically: true, encoding: .utf8)
         return ConfigurationLoadResult(
           devices: [],
+          targetPeerName: nil,
           url: url,
           message: "Created config at \(url.path)"
         )
@@ -38,12 +39,14 @@ public enum AppConfig {
 
       return ConfigurationLoadResult(
         devices: devices,
+        targetPeerName: normalizedPeerName(configuration.targetPeerName),
         url: url,
         message: devices.isEmpty ? "No valid devices in \(url.path)" : "Loaded \(devices.count) device(s)"
       )
     } catch {
       return ConfigurationLoadResult(
         devices: [],
+        targetPeerName: nil,
         url: url,
         message: "Failed to load config: \(error.localizedDescription)"
       )
@@ -51,6 +54,14 @@ public enum AppConfig {
   }
 
   public static func saveConfiguration(devices: [MagicDevice]) throws {
+    try saveConfiguration(devices: devices, targetPeerName: loadConfiguration().targetPeerName)
+  }
+
+  public static func saveTargetPeerName(_ targetPeerName: String?) throws {
+    try saveConfiguration(devices: loadConfiguration().devices, targetPeerName: targetPeerName)
+  }
+
+  public static func saveConfiguration(devices: [MagicDevice], targetPeerName: String?) throws {
     let url = configURL
     let directory = url.deletingLastPathComponent()
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -63,7 +74,12 @@ public enum AppConfig {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
 
-    let data = try encoder.encode(MagicSwitchConfiguration(devices: normalizedDevices))
+    let data = try encoder.encode(
+      MagicSwitchConfiguration(
+        devices: normalizedDevices,
+        targetPeerName: normalizedPeerName(targetPeerName)
+      )
+    )
     try data.write(to: url, options: .atomic)
   }
 
@@ -89,6 +105,15 @@ public enum AppConfig {
     return MagicDevice(name: name.isEmpty ? address : name, address: address)
   }
 
+  private static func normalizedPeerName(_ peerName: String?) -> String? {
+    guard let peerName else {
+      return nil
+    }
+
+    let normalized = peerName.trimmingCharacters(in: .whitespacesAndNewlines)
+    return normalized.isEmpty ? nil : normalized
+  }
+
   private static func isBluetoothAddress(_ address: String) -> Bool {
     let parts = address.split(separator: ":", omittingEmptySubsequences: false)
     guard parts.count == 6 else {
@@ -102,6 +127,7 @@ public enum AppConfig {
 
   private static let sampleConfiguration = """
   {
+    "targetPeerName": null,
     "devices": [
       {
         "name": "Magic Keyboard",
@@ -118,19 +144,23 @@ public enum AppConfig {
 
 public struct MagicSwitchConfiguration: Codable, Equatable, Sendable {
   public var devices: [MagicDevice]
+  public var targetPeerName: String?
 
-  public init(devices: [MagicDevice]) {
+  public init(devices: [MagicDevice], targetPeerName: String? = nil) {
     self.devices = devices
+    self.targetPeerName = targetPeerName
   }
 }
 
 public struct ConfigurationLoadResult: Equatable, Sendable {
   public let devices: [MagicDevice]
+  public let targetPeerName: String?
   public let url: URL
   public let message: String
 
-  public init(devices: [MagicDevice], url: URL, message: String) {
+  public init(devices: [MagicDevice], targetPeerName: String?, url: URL, message: String) {
     self.devices = devices
+    self.targetPeerName = targetPeerName
     self.url = url
     self.message = message
   }
