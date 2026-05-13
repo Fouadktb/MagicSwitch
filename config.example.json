@@ -1,0 +1,12 @@
+{
+  "devices": [
+    {
+      "name": "Magic Keyboard",
+      "address": "replace-with-keyboard-address"
+    },
+    {
+      "name": "Magic Trackpad",
+      "address": "replace-with-trackpad-address"
+    }
+  ]
+}

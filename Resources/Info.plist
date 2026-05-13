@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>en</string>
+  <key>CFBundleExecutable</key>
+  <string>MagicSwitch</string>
+  <key>CFBundleIdentifier</key>
+  <string>dev.fouad.magicswitch</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundleName</key>
+  <string>MagicSwitch</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>0.1.0</string>
+  <key>CFBundleVersion</key>
+  <string>1</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>13.0</string>
+  <key>LSUIElement</key>
+  <true/>
+  <key>NSBluetoothAlwaysUsageDescription</key>
+  <string>MagicSwitch uses Bluetooth to pair, release, and connect your Magic Keyboard and Magic Trackpad.</string>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>MagicSwitch uses the local network to coordinate switching with your other Mac.</string>
+  <key>NSBonjourServices</key>
+  <array>
+    <string>_magicswitch._tcp</string>
+  </array>
+</dict>
+</plist>
