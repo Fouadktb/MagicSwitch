@@ -6,13 +6,13 @@
 
 MagicSwitch is a tiny macOS menu bar app for switching an Apple Magic Keyboard, Magic Trackpad, or similar Bluetooth devices between Macs.
 
-It coordinates both Macs over the local network: one Mac releases the configured Bluetooth devices, then the other Mac pairs/connects to them. It is meant for people who keep two Macs on the same desk and want fewer USB cables, hubs, and manual Bluetooth forget/re-pair cycles.
+It coordinates Macs over the local network: one Mac releases the configured Bluetooth devices, then the selected target Mac pairs/connects to them. It is meant for people who keep multiple Macs on the same desk and want fewer USB cables, hubs, and manual Bluetooth forget/re-pair cycles.
 
 This is an early release. It works well for the setup it was built against, but Apple Bluetooth behavior can vary across macOS versions and devices.
 
 ## Requirements
 
-- Two Macs on the same local network.
+- At least two Macs on the same local network.
 - macOS 13 Ventura or newer.
 - Bluetooth and Local Network permissions granted when macOS asks.
 - Your Magic devices paired at least once.
@@ -176,8 +176,8 @@ For each configured Bluetooth device, MagicSwitch uses macOS `IOBluetooth` APIs 
 
 ## Limitations
 
-- MagicSwitch is designed for a two-Mac desk setup.
-- Both Macs need to be awake and reachable on the same local network.
+- MagicSwitch works best for desk setups where the Macs are awake on the same local network.
+- Multi-Mac setups are supported by choosing a `Target Mac` in `Manage Devices...`.
 - If a device is not discoverable, you may need to power-cycle it or pair it once manually.
 - The public build is not notarized yet.
 - This project is not affiliated with Apple.
