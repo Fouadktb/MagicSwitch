@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.8 - 2026-05-16
+
+- Added a `Repair Devices on This Mac` action for stale Bluetooth pairings after sleep.
+- Prevented overlapping local switch operations from stacking delayed release/take commands.
+- Increased peer command timeouts so slow Bluetooth recovery can finish instead of failing early.
+- Added stronger reconnect recovery for devices that are paired but not usable.
+
 ## 0.1.7 - 2026-05-13
 
 - Changed the DMG installer background to use a straight drag arrow.

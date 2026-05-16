@@ -9,6 +9,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var statusItem: NSStatusItem?
   private var deviceManager: DeviceManagerWindowController?
   private var lastMessage = "Starting..."
+  private let userOperationLock = NSLock()
+  private var userOperationInFlight = false
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
@@ -45,9 +47,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     menu.addItem(peer)
 
     menu.addItem(.separator())
-    menu.addItem(NSMenuItem(title: "Switch Devices", action: #selector(switchDevices), keyEquivalent: "s"))
-    menu.addItem(NSMenuItem(title: "Take Devices to This Mac", action: #selector(takeDevicesToThisMac), keyEquivalent: "t"))
-    menu.addItem(NSMenuItem(title: "Release Devices from This Mac", action: #selector(releaseLocalDevices), keyEquivalent: "r"))
+    let actionsEnabled = !isUserOperationActive
+    let switchItem = NSMenuItem(title: "Switch Devices", action: #selector(switchDevices), keyEquivalent: "s")
+    switchItem.isEnabled = actionsEnabled
+    menu.addItem(switchItem)
+
+    let takeItem = NSMenuItem(title: "Take Devices to This Mac", action: #selector(takeDevicesToThisMac), keyEquivalent: "t")
+    takeItem.isEnabled = actionsEnabled
+    menu.addItem(takeItem)
+
+    let releaseItem = NSMenuItem(title: "Release Devices from This Mac", action: #selector(releaseLocalDevices), keyEquivalent: "r")
+    releaseItem.isEnabled = actionsEnabled
+    menu.addItem(releaseItem)
+
+    let repairItem = NSMenuItem(title: "Repair Devices on This Mac", action: #selector(repairLocalDevices), keyEquivalent: "")
+    repairItem.isEnabled = actionsEnabled
+    menu.addItem(repairItem)
+
     menu.addItem(NSMenuItem(title: "Refresh Status", action: #selector(refreshStatusAction), keyEquivalent: ""))
     menu.addItem(.separator())
     menu.addItem(NSMenuItem(title: "Manage Devices...", action: #selector(manageDevices), keyEquivalent: "m"))
@@ -63,8 +79,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   @objc private func switchDevices() {
-    setMessage("Switching...")
+    guard beginUserOperation(message: "Switching...") else { return }
+
     Task {
+      defer { finishUserOperation() }
+
       let localStatus = await bluetooth.status()
       let allLocal = !localStatus.snapshots.isEmpty && localStatus.snapshots.allSatisfy { $0.status == .pairedConnected }
       let coordinator = SwitchCoordinator(bluetooth: bluetooth, peer: peerService)
@@ -82,8 +101,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   @objc private func takeDevicesToThisMac() {
-    setMessage("Switching...")
+    guard beginUserOperation(message: "Switching...") else { return }
+
     Task {
+      defer { finishUserOperation() }
+
       let coordinator = SwitchCoordinator(bluetooth: bluetooth, peer: peerService)
       let outcome = await coordinator.switchToThisMac()
 
@@ -97,9 +119,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   @objc private func releaseLocalDevices() {
-    setMessage("Releasing...")
+    guard beginUserOperation(message: "Releasing...") else { return }
+
     Task {
+      defer { finishUserOperation() }
+
       let report = await bluetooth.releaseAll()
+      setMessage(report.message)
+    }
+  }
+
+  @objc private func repairLocalDevices() {
+    guard beginUserOperation(message: "Repairing...") else { return }
+
+    Task {
+      defer { finishUserOperation() }
+
+      let report = await bluetooth.repairAll()
       setMessage(report.message)
     }
   }
@@ -138,6 +174,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     } else {
       DispatchQueue.main.async(execute: update)
     }
+  }
+
+  private var isUserOperationActive: Bool {
+    userOperationLock.lock()
+    let active = userOperationInFlight
+    userOperationLock.unlock()
+    return active
+  }
+
+  private func beginUserOperation(message: String) -> Bool {
+    userOperationLock.lock()
+    if userOperationInFlight {
+      userOperationLock.unlock()
+      setMessage("Already switching. Wait for the current operation.")
+      return false
+    }
+    userOperationInFlight = true
+    userOperationLock.unlock()
+
+    setMessage(message)
+    return true
+  }
+
+  private func finishUserOperation() {
+    userOperationLock.lock()
+    userOperationInFlight = false
+    userOperationLock.unlock()
   }
 
   @objc private func openLog() {

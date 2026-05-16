@@ -9,6 +9,7 @@ struct PeerEndpoint: Equatable {
 }
 
 final class PeerService: NSObject, PeerControlling {
+  private let commandTimeoutSeconds: TimeInterval = 120
   private let queue = DispatchQueue(label: "com.fouad.magicswitch.peer")
   private let logger = Logger.shared
   private var listener: NWListener?
@@ -212,7 +213,7 @@ final class PeerService: NSObject, PeerControlling {
         }
       }
 
-      queue.asyncAfter(deadline: .now() + 15) {
+      queue.asyncAfter(deadline: .now() + commandTimeoutSeconds) {
         finish(OperationReport(ok: false, message: "Peer command timed out"))
       }
 
