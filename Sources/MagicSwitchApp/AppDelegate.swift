@@ -56,13 +56,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     takeItem.isEnabled = actionsEnabled
     menu.addItem(takeItem)
 
-    let releaseItem = NSMenuItem(title: "Release Devices from This Mac", action: #selector(releaseLocalDevices), keyEquivalent: "r")
+    let releaseItem = NSMenuItem(title: "Disconnect Devices from This Mac", action: #selector(releaseLocalDevices), keyEquivalent: "r")
     releaseItem.isEnabled = actionsEnabled
     menu.addItem(releaseItem)
 
     let repairItem = NSMenuItem(title: "Repair Devices on This Mac", action: #selector(repairLocalDevices), keyEquivalent: "")
     repairItem.isEnabled = actionsEnabled
     menu.addItem(repairItem)
+
+    let forgetItem = NSMenuItem(title: "Forget Pairings on This Mac...", action: #selector(forgetLocalDevices), keyEquivalent: "")
+    forgetItem.isEnabled = actionsEnabled
+    menu.addItem(forgetItem)
 
     menu.addItem(NSMenuItem(title: "Refresh Status", action: #selector(refreshStatusAction), keyEquivalent: ""))
     menu.addItem(.separator())
@@ -119,12 +123,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   @objc private func releaseLocalDevices() {
-    guard beginUserOperation(message: "Releasing...") else { return }
+    guard beginUserOperation(message: "Disconnecting...") else { return }
 
     Task {
       defer { finishUserOperation() }
 
       let report = await bluetooth.releaseAll()
+      setMessage(report.message)
+    }
+  }
+
+  @objc private func forgetLocalDevices() {
+    let alert = NSAlert()
+    alert.messageText = "Forget pairings on this Mac?"
+    alert.informativeText = "This removes the configured Bluetooth pairings from this Mac. Use it only when a normal disconnect or repair is not enough."
+    alert.alertStyle = .warning
+    alert.addButton(withTitle: "Forget Pairings")
+    alert.addButton(withTitle: "Cancel")
+
+    guard alert.runModal() == .alertFirstButtonReturn else {
+      return
+    }
+
+    guard beginUserOperation(message: "Forgetting...") else { return }
+
+    Task {
+      defer { finishUserOperation() }
+
+      let report = await bluetooth.forgetAll()
       setMessage(report.message)
     }
   }

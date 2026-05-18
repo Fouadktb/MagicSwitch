@@ -9,7 +9,7 @@ struct PeerEndpoint: Equatable {
 }
 
 final class PeerService: NSObject, PeerControlling {
-  private let commandTimeoutSeconds: TimeInterval = 120
+  private let commandTimeoutSeconds: TimeInterval = 150
   private let queue = DispatchQueue(label: "com.fouad.magicswitch.peer")
   private let logger = Logger.shared
   private var listener: NWListener?

@@ -20,7 +20,7 @@ This is an early release. It works well for the setup it was built against, but 
 
 ## Install
 
-1. Download `MagicSwitch-v0.1.8.dmg` from the release.
+1. Download `MagicSwitch-v0.1.9.dmg` from the release.
 2. Open the disk image.
 3. Drag `MagicSwitch.app` onto the `Applications` shortcut.
 4. Launch `MagicSwitch.app` from `Applications` on both Macs.
@@ -55,7 +55,7 @@ Try this first:
 2. Choose `Repair Devices on This Mac`.
 3. Wait for the operation to finish before clicking another switch action.
 
-The repair action removes the local stale pairing, starts pairing again, and opens a fresh Bluetooth connection. If macOS still cannot reach the physical device, power-cycle the keyboard, trackpad, or mouse once, then accept the macOS Bluetooth connection prompt.
+The repair action refreshes the local connection without forgetting the pairing. If macOS still cannot reach the physical device, power-cycle the keyboard, trackpad, or mouse once, then accept the macOS Bluetooth connection prompt.
 
 Avoid repeatedly clicking switch actions while a repair or switch is running. Slow Bluetooth recovery can take more than a minute when a device has been asleep.
 
@@ -143,8 +143,9 @@ Run MagicSwitch on both Macs. In the menu bar, click the MagicSwitch icon:
 
 - `Switch Devices`: moves the configured devices to the other Mac when they are currently connected locally, or takes them to this Mac otherwise.
 - `Take Devices to This Mac`: asks the peer Mac to release the devices, then connects them here.
-- `Release Devices from This Mac`: disconnects and removes the local pairings.
-- `Repair Devices on This Mac`: force-refreshes local pairings when devices appear connected after sleep but do not work.
+- `Disconnect Devices from This Mac`: closes the local Bluetooth connections without forgetting pairings.
+- `Repair Devices on This Mac`: refreshes local connections when devices appear connected after sleep but do not work.
+- `Forget Pairings on This Mac...`: explicitly removes the local Bluetooth pairings after confirmation.
 - `Manage Devices...`: choose the target Mac, import peer peripherals, and add or remove Bluetooth peripherals from the switch list.
 - `Open Config`: opens the active config file.
 - `Open Log`: opens the app log.
@@ -170,14 +171,14 @@ build/MagicSwitch.app
 To create release artifacts:
 
 ```zsh
-scripts/package-release.sh 0.1.8
+scripts/package-release.sh 0.1.9
 ```
 
 The artifacts are written to:
 
 ```text
-dist/MagicSwitch-v0.1.8.dmg
-dist/MagicSwitch-v0.1.8.zip
+dist/MagicSwitch-v0.1.9.dmg
+dist/MagicSwitch-v0.1.9.zip
 ```
 
 ## How It Works
@@ -187,7 +188,8 @@ MagicSwitch runs a small TCP listener on each Mac and advertises it with Bonjour
 For each configured Bluetooth device, MagicSwitch uses macOS `IOBluetooth` APIs to:
 
 - close the active connection,
-- remove local pairing when releasing,
+- keep pairings during normal switching,
+- remove local pairings only from the explicit forget action,
 - start pairing,
 - open a Bluetooth connection on the target Mac.
 

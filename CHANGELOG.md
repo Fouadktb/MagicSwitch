@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.9 - 2026-05-18
+
+- Changed normal switching to disconnect devices without removing local pairings.
+- Removed destructive stale-pair recovery from automatic take/switch operations.
+- Reduced the automatic reconnect retry budget and fail fast when an unpaired device is not reachable.
+- Kept pairing removal behind an explicit `Forget Pairings on This Mac...` action with confirmation.
+- Made `Repair Devices on This Mac` refresh connections without forgetting pairings.
+
 ## 0.1.8 - 2026-05-16
 
 - Added a `Repair Devices on This Mac` action for stale Bluetooth pairings after sleep.
