@@ -188,9 +188,11 @@ MagicSwitch runs a small TCP listener on each Mac and advertises it with Bonjour
 For each configured Bluetooth device, MagicSwitch uses macOS `IOBluetooth` APIs to:
 
 - close the active connection,
-- keep pairings during normal switching,
-- remove local pairings only from the explicit forget action,
-- start pairing,
+- keep pairings during normal switch and disconnect operations,
+- require the target Mac to already be paired before it can take a device,
+- try to restore devices to the source Mac if the target Mac cannot take them,
+- remove local pairings from the explicit forget action,
+- start pairing only during explicit repair/setup flows,
 - open a Bluetooth connection on the target Mac.
 
 ## Limitations

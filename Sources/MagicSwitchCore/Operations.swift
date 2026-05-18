@@ -3,6 +3,7 @@ import Foundation
 public enum SwitchCommand: String, Codable, Sendable {
   case health = "HEALTH"
   case releaseAll = "RELEASE_ALL"
+  case forgetAll = "FORGET_ALL"
   case takeAll = "TAKE_ALL"
   case status = "STATUS"
 }
@@ -31,6 +32,7 @@ public enum SwitchOutcome: Equatable, Sendable {
 
 public protocol LocalBluetoothManaging {
   func releaseAll() async -> OperationReport
+  func forgetAll() async -> OperationReport
   func takeAll() async -> OperationReport
   func status() async -> OperationReport
 }
@@ -58,6 +60,13 @@ public struct SwitchCoordinator {
 
     let takeReport = await bluetooth.takeAll()
     guard takeReport.ok else {
+      if let peer {
+        let rollbackReport = await peer.send(.takeAll)
+        let restoreMessage = rollbackReport.ok
+          ? "Restored devices to peer."
+          : "Could not restore peer devices: \(rollbackReport.message)"
+        return .failed("\(takeReport.message). \(restoreMessage)")
+      }
       return .failed(takeReport.message)
     }
 
@@ -76,7 +85,11 @@ public struct SwitchCoordinator {
 
     let peerTakeReport = await peer.send(.takeAll)
     guard peerTakeReport.ok else {
-      return .failed("Peer take failed: \(peerTakeReport.message)")
+      let rollbackReport = await bluetooth.takeAll()
+      let restoreMessage = rollbackReport.ok
+        ? "Restored devices to this Mac."
+        : "Could not restore local devices: \(rollbackReport.message)"
+      return .failed("Peer take failed: \(peerTakeReport.message). \(restoreMessage)")
     }
 
     return .switched(peerTakeReport)

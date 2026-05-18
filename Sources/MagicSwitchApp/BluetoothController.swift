@@ -6,6 +6,7 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
   private let connectionAttempts = 2
   private let connectionPageTimeout = BluetoothHCIPageTimeout(0x0800)
   private let snapshotTimeoutNanoseconds: UInt64 = 1_500_000_000
+  private let deviceLookupTimeoutSeconds: TimeInterval = 3
   private var configuration: ConfigurationLoadResult
   private let configurationLock = NSLock()
   private let queue = DispatchQueue(label: "com.fouad.magicswitch.bluetooth", qos: .userInitiated)
@@ -234,7 +235,7 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
   }
 
   private func snapshot(for magicDevice: MagicDevice) -> DeviceSnapshot {
-    guard let device = IOBluetoothDevice(addressString: magicDevice.address) else {
+    guard let device = lookupDevice(magicDevice, context: "status", logTimeout: false) else {
       return DeviceSnapshot(device: magicDevice, status: .unavailable, detail: "No IOBluetoothDevice")
     }
 
@@ -259,7 +260,7 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
   }
 
   private func disconnect(_ magicDevice: MagicDevice) {
-    guard let device = IOBluetoothDevice(addressString: magicDevice.address) else {
+    guard let device = lookupDevice(magicDevice, context: "disconnect") else {
       logger.log("\(magicDevice.name): unavailable during disconnect")
       return
     }
@@ -268,7 +269,7 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
   }
 
   private func forget(_ magicDevice: MagicDevice) {
-    guard let device = IOBluetoothDevice(addressString: magicDevice.address) else {
+    guard let device = lookupDevice(magicDevice, context: "forget") else {
       logger.log("\(magicDevice.name): unavailable during forget")
       return
     }
@@ -277,7 +278,7 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
   }
 
   private func repair(_ magicDevice: MagicDevice) {
-    guard let device = IOBluetoothDevice(addressString: magicDevice.address) else {
+    guard let device = lookupDevice(magicDevice, context: "repair") else {
       logger.log("\(magicDevice.name): unavailable during repair")
       return
     }
@@ -296,7 +297,7 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
   }
 
   private func take(_ magicDevice: MagicDevice) {
-    guard let device = IOBluetoothDevice(addressString: magicDevice.address) else {
+    guard let device = lookupDevice(magicDevice, context: "take") else {
       logger.log("\(magicDevice.name): unavailable during take")
       return
     }
@@ -306,12 +307,8 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
       return
     }
 
-    if !device.isPaired(), isInvalidRSSI(device.rssi()) {
-      logger.log("\(magicDevice.name): not reachable for pairing (rssi=\(device.rssi()))")
-      return
-    }
-
-    guard pair(device, named: magicDevice.name) else {
+    guard device.isPaired() else {
+      logger.log("\(magicDevice.name): not paired on this Mac")
       return
     }
 
@@ -457,7 +454,43 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
     String(format: "%.1fs", Date().timeIntervalSince(startedAt))
   }
 
-  private func isInvalidRSSI(_ rssi: BluetoothHCIRSSIValue) -> Bool {
-    rssi == 127
+  private func lookupDevice(_ magicDevice: MagicDevice, context: String, logTimeout: Bool = true) -> IOBluetoothDevice? {
+    withTimeout(seconds: deviceLookupTimeoutSeconds, fallback: {
+      if logTimeout {
+        self.logger.log("\(magicDevice.name): device lookup timed out during \(context)")
+      }
+      return nil
+    }) {
+      IOBluetoothDevice(addressString: magicDevice.address)
+    }
+  }
+
+  private func withTimeout<T>(seconds: TimeInterval, fallback: @escaping () -> T, _ body: @escaping () -> T) -> T {
+    let semaphore = DispatchSemaphore(value: 0)
+    let lock = NSLock()
+    var completed = false
+    var value: T?
+
+    DispatchQueue.global(qos: .userInitiated).async {
+      let output = body()
+      lock.lock()
+      if !completed {
+        value = output
+        completed = true
+        lock.unlock()
+        semaphore.signal()
+      } else {
+        lock.unlock()
+      }
+    }
+
+    if semaphore.wait(timeout: .now() + seconds) == .timedOut {
+      lock.lock()
+      completed = true
+      lock.unlock()
+      return fallback()
+    }
+
+    return value ?? fallback()
   }
 }

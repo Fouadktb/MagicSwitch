@@ -183,6 +183,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       return await bluetooth.status()
     case .releaseAll:
       return await bluetooth.releaseAll()
+    case .forgetAll:
+      return await bluetooth.forgetAll()
     case .takeAll:
       return await bluetooth.takeAll()
     }
