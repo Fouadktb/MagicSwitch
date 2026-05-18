@@ -8,7 +8,12 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
   private let snapshotTimeoutNanoseconds: UInt64 = 10_000_000_000
   private let deviceLookupTimeoutSeconds: TimeInterval = 3
   private let bluetoothStateTimeoutSeconds: TimeInterval = 1
+  private let bluetoothActionTimeoutSeconds: TimeInterval = 8
   private let systemProfilerTimeoutSeconds: TimeInterval = 6
+  private let pairingRemovalSettleSeconds: TimeInterval = 2.5
+  private let takeRetryLimit = 3
+  private let takeRetryDelaySeconds: TimeInterval = 1.5
+  private let takeStabilityDelaySeconds: TimeInterval = 6
   private var configuration: ConfigurationLoadResult
   private let configurationLock = NSLock()
   private let queue = DispatchQueue(label: "com.fouad.magicswitch.bluetooth", qos: .userInitiated)
@@ -112,15 +117,45 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
       self.logger.log("Take requested")
       var snapshots: [DeviceSnapshot] = []
 
-      for device in devices {
-        self.take(device)
-        snapshots.append(self.snapshot(for: device))
+      for pass in 1...self.takeRetryLimit {
+        self.logger.log("Take pass \(pass) of \(self.takeRetryLimit)")
+
+        for device in devices {
+          let snapshot = self.snapshot(for: device)
+          if snapshot.status == .pairedConnected {
+            self.logger.log("\(device.name): already connected before take pass \(pass)")
+          } else {
+            self.take(device)
+          }
+        }
+
+        Thread.sleep(forTimeInterval: self.takeRetryDelaySeconds)
+        snapshots = devices.map { self.snapshot(for: $0) }
+
+        guard snapshots.allSatisfy({ $0.status == .pairedConnected }) else {
+          self.logger.log("Take pass \(pass) did not connect all devices")
+          continue
+        }
+
+        Thread.sleep(forTimeInterval: self.takeStabilityDelaySeconds)
+        snapshots = devices.map { self.snapshot(for: $0) }
+
+        if snapshots.allSatisfy({ $0.status == .pairedConnected }) {
+          let report = OperationReport(
+            ok: true,
+            message: "Devices connected to this Mac",
+            snapshots: snapshots
+          )
+          self.logger.log("\(report.message) in \(self.formatDuration(since: startedAt))")
+          return report
+        }
+
+        self.logger.log("Devices dropped during stability check after take pass \(pass)")
       }
 
-      let ok = snapshots.allSatisfy { $0.status == .pairedConnected }
       let report = OperationReport(
-        ok: ok,
-        message: ok ? "Devices connected to this Mac" : "Not all devices connected",
+        ok: false,
+        message: "Not all devices stayed connected",
         snapshots: snapshots
       )
       self.logger.log("\(report.message) in \(self.formatDuration(since: startedAt))")
@@ -183,7 +218,7 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
         removalResults.append(self.forget(device))
       }
 
-      Thread.sleep(forTimeInterval: 1.2)
+      Thread.sleep(forTimeInterval: self.pairingRemovalSettleSeconds)
 
       for device in devices {
         snapshots.append(self.snapshot(for: device))
@@ -340,11 +375,19 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
         return true
       }
 
-      let result = device.openConnection(
-        nil,
-        withPageTimeout: connectionPageTimeout,
-        authenticationRequired: false
-      )
+      let openResult: IOReturn? = bluetoothCall(
+        "\(name): openConnection attempt \(attempt) timed out",
+        timeout: bluetoothActionTimeoutSeconds
+      ) {
+        device.openConnection(
+          nil,
+          withPageTimeout: self.connectionPageTimeout,
+          authenticationRequired: false
+        )
+      }
+      guard let result = openResult else {
+        return false
+      }
       logger.log("\(name): openConnection attempt \(attempt) -> \(formatIOReturn(result))")
 
       if waitForConnected(device, seconds: 3) {
@@ -364,12 +407,25 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
       return true
     }
 
-    guard let pair = IOBluetoothDevicePair(device: device) else {
+    let pair = withTimeout(seconds: bluetoothActionTimeoutSeconds, fallback: {
+      self.logger.log("\(name): pair object creation timed out")
+      return nil as IOBluetoothDevicePair?
+    }) {
+      IOBluetoothDevicePair(device: device)
+    }
+
+    guard let pair else {
       logger.log("\(name): failed to create pair object")
       return false
     }
 
-    let result = pair.start()
+    guard let result: IOReturn = bluetoothCall(
+      "\(name): pair start timed out",
+      timeout: bluetoothActionTimeoutSeconds,
+      pair.start
+    ) else {
+      return false
+    }
     logger.log("\(name): pair start -> \(formatIOReturn(result))")
 
     for _ in 0..<20 {
