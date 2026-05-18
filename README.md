@@ -59,6 +59,18 @@ The repair action refreshes the local connection without forgetting the pairing.
 
 Avoid repeatedly clicking switch actions while a repair or switch is running. Slow Bluetooth recovery can take more than a minute when a device has been asleep.
 
+### Peer Is Not Reachable
+
+If switching says the peer is not reachable, or the log mentions `Network is down` or `No route to host`, macOS is usually blocking MagicSwitch from Local Network access.
+
+On both Macs:
+
+1. Open `System Settings > Privacy & Security > Local Network`.
+2. Enable `MagicSwitch`.
+3. Quit and reopen `MagicSwitch`.
+
+If you installed a new ad-hoc build, macOS may ask for Local Network or Bluetooth permission again. Allow both on each Mac before testing switching.
+
 ### `"MagicSwitch" Not Opened`
 
 If macOS says it could not verify that MagicSwitch is free of malware, Gatekeeper is blocking the app because the current public build is ad-hoc signed but not notarized yet. Only continue if you downloaded MagicSwitch from the official GitHub release.
@@ -183,7 +195,7 @@ dist/MagicSwitch-v0.1.9.zip
 
 ## How It Works
 
-MagicSwitch runs a small TCP listener on each Mac and advertises it with Bonjour as `_magicswitch._tcp`. Other MagicSwitch instances on the same local network discover that service automatically. When switching, the active Mac tells the selected peer to release or take the configured Bluetooth devices.
+MagicSwitch runs a small TCP listener on each Mac on port `58423` and advertises it with Bonjour as `_magicswitch._tcp`. Other MagicSwitch instances on the same local network discover that service automatically. When switching, the active Mac first checks that the selected peer is reachable, then tells it to release or take the configured Bluetooth devices.
 
 For each configured Bluetooth device, MagicSwitch uses macOS `IOBluetooth` APIs to:
 

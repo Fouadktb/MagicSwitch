@@ -5,8 +5,10 @@ import MagicSwitchCore
 final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
   private let connectionAttempts = 2
   private let connectionPageTimeout = BluetoothHCIPageTimeout(0x0800)
-  private let snapshotTimeoutNanoseconds: UInt64 = 1_500_000_000
+  private let snapshotTimeoutNanoseconds: UInt64 = 10_000_000_000
   private let deviceLookupTimeoutSeconds: TimeInterval = 3
+  private let bluetoothStateTimeoutSeconds: TimeInterval = 1
+  private let systemProfilerTimeoutSeconds: TimeInterval = 6
   private var configuration: ConfigurationLoadResult
   private let configurationLock = NSLock()
   private let queue = DispatchQueue(label: "com.fouad.magicswitch.bluetooth", qos: .userInitiated)
@@ -175,17 +177,22 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
       let startedAt = Date()
       self.logger.log("Forget requested")
       var snapshots: [DeviceSnapshot] = []
+      var removalResults: [Bool] = []
 
       for device in devices {
-        self.forget(device)
-        self.waitForReleased(device, seconds: 6)
+        removalResults.append(self.forget(device))
+      }
+
+      Thread.sleep(forTimeInterval: 1.2)
+
+      for device in devices {
         snapshots.append(self.snapshot(for: device))
       }
 
-      let ok = snapshots.allSatisfy { $0.status != .pairedConnected }
+      let ok = removalResults.allSatisfy { $0 }
       let report = OperationReport(
         ok: ok,
-        message: ok ? "Forgot local pairings" : "Some devices are still connected",
+        message: ok ? "Requested local pairing removal" : "Some pairings could not be removed",
         snapshots: snapshots
       )
       self.logger.log("\(report.message) in \(self.formatDuration(since: startedAt))")
@@ -236,23 +243,31 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
 
   private func snapshot(for magicDevice: MagicDevice) -> DeviceSnapshot {
     guard let device = lookupDevice(magicDevice, context: "status", logTimeout: false) else {
+      if let snapshot = systemSnapshot(for: magicDevice) {
+        return snapshot
+      }
       return DeviceSnapshot(device: magicDevice, status: .unavailable, detail: "No IOBluetoothDevice")
     }
 
-    let status: MagicDeviceStatus
-    if device.isConnected() {
-      status = .pairedConnected
-    } else if device.isPaired() {
-      status = .pairedDisconnected
-    } else {
-      status = .unpaired
+    if let isConnected = isConnected(device, named: magicDevice.name, context: "status", logTimeout: false) {
+      if isConnected {
+        return DeviceSnapshot(device: magicDevice, status: .pairedConnected, detail: "")
+      }
+
+      if let isPaired = isPaired(device, named: magicDevice.name, context: "status", logTimeout: false) {
+        return DeviceSnapshot(
+          device: magicDevice,
+          status: isPaired ? .pairedDisconnected : .unpaired,
+          detail: ""
+        )
+      }
     }
 
-    return DeviceSnapshot(
-      device: magicDevice,
-      status: status,
-      detail: ""
-    )
+    if let snapshot = systemSnapshot(for: magicDevice) {
+      return snapshot
+    }
+
+    return DeviceSnapshot(device: magicDevice, status: .unavailable, detail: "Bluetooth status timed out")
   }
 
   private func release(_ magicDevice: MagicDevice) {
@@ -268,13 +283,13 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
     disconnect(device, named: magicDevice.name)
   }
 
-  private func forget(_ magicDevice: MagicDevice) {
+  private func forget(_ magicDevice: MagicDevice) -> Bool {
     guard let device = lookupDevice(magicDevice, context: "forget") else {
       logger.log("\(magicDevice.name): unavailable during forget")
-      return
+      return false
     }
 
-    forget(device, named: magicDevice.name)
+    return forget(device, named: magicDevice.name)
   }
 
   private func repair(_ magicDevice: MagicDevice) {
@@ -283,7 +298,7 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
       return
     }
 
-    if device.isConnected() {
+    if isConnected(device, named: magicDevice.name, context: "repair") == true {
       logger.log("\(magicDevice.name): refreshing existing connection")
       disconnect(device, named: magicDevice.name)
       Thread.sleep(forTimeInterval: 1.2)
@@ -297,12 +312,17 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
   }
 
   private func take(_ magicDevice: MagicDevice) {
+    if systemSnapshot(for: magicDevice)?.status == .pairedConnected {
+      logger.log("\(magicDevice.name): already connected according to macOS")
+      return
+    }
+
     guard let device = lookupDevice(magicDevice, context: "take") else {
       logger.log("\(magicDevice.name): unavailable during take")
       return
     }
 
-    if device.isConnected() {
+    if isConnected(device, named: magicDevice.name, context: "take") == true {
       logger.log("\(magicDevice.name): already connected")
       return
     }
@@ -338,7 +358,7 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
   }
 
   private func pair(_ device: IOBluetoothDevice, named name: String) -> Bool {
-    if device.isPaired() || device.isConnected() {
+    if isPaired(device, named: name, context: "pair") == true || isConnected(device, named: name, context: "pair") == true {
       logger.log("\(name): already paired")
       Thread.sleep(forTimeInterval: 0.3)
       return true
@@ -353,7 +373,8 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
     logger.log("\(name): pair start -> \(formatIOReturn(result))")
 
     for _ in 0..<20 {
-      if device.isPaired() || device.isConnected() {
+      if isPaired(device, named: name, context: "pair wait", timeout: 0.5) == true
+        || isConnected(device, named: name, context: "pair wait", timeout: 0.5) == true {
         logger.log("\(name): pair observed as complete")
         Thread.sleep(forTimeInterval: 0.6)
         return true
@@ -377,7 +398,7 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
 
   private func waitForConnected(_ device: IOBluetoothDevice, seconds: Int) -> Bool {
     for _ in 0..<(seconds * 4) {
-      if device.isConnected() {
+      if isConnected(device, named: "Device", context: "connect wait", timeout: 0.5, logTimeout: false) == true {
         return true
       }
       Thread.sleep(forTimeInterval: 0.25)
@@ -387,29 +408,59 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
   }
 
   private func disconnect(_ device: IOBluetoothDevice, named name: String) {
-    if device.isConnected() {
-      let closeResult = device.closeConnection()
-      logger.log("\(name): closeConnection -> \(formatIOReturn(closeResult))")
-      Thread.sleep(forTimeInterval: 0.6)
+    let connected = isConnected(device, named: name, context: "disconnect")
+    if connected != false {
+      closeConnection(device, named: name)
     } else {
       logger.log("\(name): already disconnected")
     }
   }
 
-  private func forget(_ device: IOBluetoothDevice, named name: String) {
+  private func forget(_ device: IOBluetoothDevice, named name: String) -> Bool {
     let removeSelector = Selector(("remove"))
     if device.responds(to: removeSelector) {
       _ = device.perform(removeSelector)
       logger.log("\(name): remove pairing requested")
+      return true
     } else {
       logger.log("\(name): remove selector unavailable")
+      return false
     }
+  }
 
-    Thread.sleep(forTimeInterval: 0.8)
+  private func closeConnection(_ device: IOBluetoothDevice, named name: String) {
+    let closeResult = device.closeConnection()
+    logger.log("\(name): closeConnection -> \(formatIOReturn(closeResult))")
+    Thread.sleep(forTimeInterval: 0.6)
+  }
 
-    if device.isConnected() {
-      logger.log("\(name): still connected after remove; closing")
-      disconnect(device, named: name)
+  private func isConnected(
+    _ device: IOBluetoothDevice,
+    named name: String,
+    context: String,
+    timeout: TimeInterval? = nil,
+    logTimeout: Bool = true
+  ) -> Bool? {
+    bluetoothCall(
+      logTimeout ? "\(name): isConnected timed out during \(context)" : nil,
+      timeout: timeout ?? bluetoothStateTimeoutSeconds
+    ) {
+      device.isConnected()
+    }
+  }
+
+  private func isPaired(
+    _ device: IOBluetoothDevice,
+    named name: String,
+    context: String,
+    timeout: TimeInterval? = nil,
+    logTimeout: Bool = true
+  ) -> Bool? {
+    bluetoothCall(
+      logTimeout ? "\(name): isPaired timed out during \(context)" : nil,
+      timeout: timeout ?? bluetoothStateTimeoutSeconds
+    ) {
+      device.isPaired()
     }
   }
 
@@ -468,6 +519,17 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
     }
   }
 
+  private func bluetoothCall<T>(_ timeoutMessage: String?, timeout: TimeInterval, _ body: @escaping () -> T) -> T? {
+    withTimeout(seconds: timeout, fallback: {
+      if let timeoutMessage {
+        self.logger.log(timeoutMessage)
+      }
+      return nil
+    }) {
+      body()
+    }
+  }
+
   private func withTimeout<T>(seconds: TimeInterval, fallback: @escaping () -> T, _ body: @escaping () -> T) -> T {
     let semaphore = DispatchSemaphore(value: 0)
     let lock = NSLock()
@@ -495,5 +557,119 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
     }
 
     return value ?? fallback()
+  }
+}
+
+private extension BluetoothController {
+  struct SystemBluetoothSnapshot {
+    let controllerIsOn: Bool?
+    let connectedAddresses: Set<String>
+    let knownAddresses: Set<String>
+  }
+
+  func systemSnapshot(for magicDevice: MagicDevice) -> DeviceSnapshot? {
+    guard let systemSnapshot = loadSystemBluetoothSnapshot() else {
+      return nil
+    }
+
+    if systemSnapshot.connectedAddresses.contains(magicDevice.address) {
+      return DeviceSnapshot(device: magicDevice, status: .pairedConnected, detail: "Verified by macOS")
+    }
+
+    if systemSnapshot.knownAddresses.contains(magicDevice.address) {
+      return DeviceSnapshot(device: magicDevice, status: .pairedDisconnected, detail: "Verified by macOS")
+    }
+
+    if systemSnapshot.controllerIsOn == false {
+      return DeviceSnapshot(device: magicDevice, status: .unavailable, detail: "Bluetooth is off")
+    }
+
+    return DeviceSnapshot(device: magicDevice, status: .unpaired, detail: "Not listed by macOS")
+  }
+
+  func loadSystemBluetoothSnapshot() -> SystemBluetoothSnapshot? {
+    let process = Process()
+    let outputPipe = Pipe()
+    process.executableURL = URL(fileURLWithPath: "/usr/sbin/system_profiler")
+    process.arguments = ["-json", "SPBluetoothDataType"]
+    process.standardOutput = outputPipe
+    process.standardError = Pipe()
+
+    do {
+      try process.run()
+    } catch {
+      logger.log("system_profiler Bluetooth status failed: \(error.localizedDescription)")
+      return nil
+    }
+
+    let semaphore = DispatchSemaphore(value: 0)
+    DispatchQueue.global(qos: .utility).async {
+      process.waitUntilExit()
+      semaphore.signal()
+    }
+
+    if semaphore.wait(timeout: .now() + systemProfilerTimeoutSeconds) == .timedOut {
+      process.terminate()
+      logger.log("system_profiler Bluetooth status timed out")
+      return nil
+    }
+
+    guard process.terminationStatus == 0 else {
+      logger.log("system_profiler Bluetooth status exited with \(process.terminationStatus)")
+      return nil
+    }
+
+    let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
+    guard
+      let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+      let sections = root["SPBluetoothDataType"] as? [[String: Any]]
+    else {
+      logger.log("system_profiler Bluetooth status could not be parsed")
+      return nil
+    }
+
+    var controllerIsOn: Bool?
+    var connectedAddresses = Set<String>()
+    var knownAddresses = Set<String>()
+
+    for section in sections {
+      if let controller = section["controller_properties"] as? [String: Any],
+         let state = controller["controller_state"] as? String {
+        controllerIsOn = state == "attrib_on"
+      }
+
+      let connected = addresses(in: section["device_connected"])
+      connectedAddresses.formUnion(connected)
+      knownAddresses.formUnion(connected)
+      knownAddresses.formUnion(addresses(in: section["device_not_connected"]))
+    }
+
+    return SystemBluetoothSnapshot(
+      controllerIsOn: controllerIsOn,
+      connectedAddresses: connectedAddresses,
+      knownAddresses: knownAddresses
+    )
+  }
+
+  func addresses(in value: Any?) -> Set<String> {
+    guard let devices = value as? [[String: Any]] else {
+      return []
+    }
+
+    var addresses = Set<String>()
+    for device in devices {
+      for properties in device.values {
+        guard
+          let properties = properties as? [String: Any],
+          let rawAddress = properties["device_address"] as? String,
+          let address = AppConfig.canonicalBluetoothAddress(rawAddress)
+        else {
+          continue
+        }
+        addresses.insert(address)
+      }
+    }
+
+    return addresses
   }
 }

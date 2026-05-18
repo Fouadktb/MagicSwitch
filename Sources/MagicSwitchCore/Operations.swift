@@ -6,6 +6,9 @@ public enum SwitchCommand: String, Codable, Sendable {
   case forgetAll = "FORGET_ALL"
   case takeAll = "TAKE_ALL"
   case status = "STATUS"
+  case switchDevices = "SWITCH_DEVICES"
+  case switchToThisMac = "SWITCH_TO_THIS_MAC"
+  case switchToPeer = "SWITCH_TO_PEER"
 }
 
 public struct OperationReport: Codable, Equatable, Sendable {
@@ -76,6 +79,11 @@ public struct SwitchCoordinator {
   public func switchToPeer() async -> SwitchOutcome {
     guard let peer else {
       return .failed("No peer discovered")
+    }
+
+    let healthReport = await peer.send(.health)
+    guard healthReport.ok else {
+      return .failed("Peer is not reachable: \(healthReport.message)")
     }
 
     let releaseReport = await bluetooth.forgetAll()

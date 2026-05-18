@@ -88,19 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     Task {
       defer { finishUserOperation() }
 
-      let localStatus = await bluetooth.status()
-      let allLocal = !localStatus.snapshots.isEmpty && localStatus.snapshots.allSatisfy { $0.status == .pairedConnected }
-      let coordinator = SwitchCoordinator(bluetooth: bluetooth, peer: peerService)
-      let outcome = allLocal
-        ? await coordinator.switchToPeer()
-        : await coordinator.switchToThisMac()
-
-      switch outcome {
-      case .switched(let report):
-        setMessage(report.message)
-      case .failed(let message):
-        setMessage("Failed: \(message)")
-      }
+      setMessage(userMessage(for: await switchDevicesReport()))
     }
   }
 
@@ -110,15 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     Task {
       defer { finishUserOperation() }
 
-      let coordinator = SwitchCoordinator(bluetooth: bluetooth, peer: peerService)
-      let outcome = await coordinator.switchToThisMac()
-
-      switch outcome {
-      case .switched(let report):
-        setMessage(report.message)
-      case .failed(let message):
-        setMessage("Failed: \(message)")
-      }
+      setMessage(userMessage(for: await switchToThisMacReport()))
     }
   }
 
@@ -187,7 +167,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       return await bluetooth.forgetAll()
     case .takeAll:
       return await bluetooth.takeAll()
+    case .switchDevices:
+      return await switchDevicesReport()
+    case .switchToThisMac:
+      return await switchToThisMacReport()
+    case .switchToPeer:
+      return await switchToPeerReport()
     }
+  }
+
+  private func switchDevicesReport() async -> OperationReport {
+    let localStatus = await bluetooth.status()
+    let allLocal = !localStatus.snapshots.isEmpty && localStatus.snapshots.allSatisfy { $0.status == .pairedConnected }
+    return allLocal
+      ? await switchToPeerReport()
+      : await switchToThisMacReport()
+  }
+
+  private func switchToThisMacReport() async -> OperationReport {
+    let coordinator = SwitchCoordinator(bluetooth: bluetooth, peer: peerService)
+    return await report(for: coordinator.switchToThisMac())
+  }
+
+  private func switchToPeerReport() async -> OperationReport {
+    let coordinator = SwitchCoordinator(bluetooth: bluetooth, peer: peerService)
+    return await report(for: coordinator.switchToPeer())
+  }
+
+  private func report(for outcome: SwitchOutcome) -> OperationReport {
+    switch outcome {
+    case .switched(let report):
+      return report
+    case .failed(let message):
+      return OperationReport(ok: false, message: message)
+    }
+  }
+
+  private func userMessage(for report: OperationReport) -> String {
+    report.ok ? report.message : "Failed: \(report.message)"
   }
 
   private func setMessage(_ message: String) {
