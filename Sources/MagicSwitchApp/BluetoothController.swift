@@ -307,11 +307,9 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
       return
     }
 
-    guard device.isPaired() else {
-      logger.log("\(magicDevice.name): not paired on this Mac")
+    guard pair(device, named: magicDevice.name) else {
       return
     }
-
     _ = connect(device, named: magicDevice.name, attempts: 1...connectionAttempts)
   }
 
@@ -399,14 +397,19 @@ final class BluetoothController: @unchecked Sendable, LocalBluetoothManaging {
   }
 
   private func forget(_ device: IOBluetoothDevice, named name: String) {
-    disconnect(device, named: name)
-
     let removeSelector = Selector(("remove"))
     if device.responds(to: removeSelector) {
       _ = device.perform(removeSelector)
       logger.log("\(name): remove pairing requested")
     } else {
       logger.log("\(name): remove selector unavailable")
+    }
+
+    Thread.sleep(forTimeInterval: 0.8)
+
+    if device.isConnected() {
+      logger.log("\(name): still connected after remove; closing")
+      disconnect(device, named: name)
     }
   }
 

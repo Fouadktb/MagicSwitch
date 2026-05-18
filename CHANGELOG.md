@@ -3,9 +3,8 @@
 ## 0.1.9 - 2026-05-18
 
 - Changed normal switching to disconnect devices without removing local pairings.
-- Normal switch operations now preserve source-side pairings and roll back to the source Mac if the target Mac cannot take the devices.
+- Normal switch operations remove source-side pairings while devices are still connected, then roll back to the source Mac if the target Mac cannot take the devices.
 - Removed destructive stale-pair recovery from target-side take operations.
-- Target-side take operations now require an existing pairing instead of trying to re-pair during a switch.
 - Reduced the automatic reconnect retry budget and fail fast when an unpaired device is not reachable.
 - Kept pairing removal behind an explicit `Forget Pairings on This Mac...` action with confirmation.
 - Made `Repair Devices on This Mac` refresh connections without forgetting pairings.

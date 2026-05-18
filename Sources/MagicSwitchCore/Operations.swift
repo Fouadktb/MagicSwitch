@@ -52,7 +52,7 @@ public struct SwitchCoordinator {
 
   public func switchToThisMac() async -> SwitchOutcome {
     if let peer {
-      let releaseReport = await peer.send(.releaseAll)
+      let releaseReport = await peer.send(.forgetAll)
       guard releaseReport.ok else {
         return .failed("Peer release failed: \(releaseReport.message)")
       }
@@ -78,7 +78,7 @@ public struct SwitchCoordinator {
       return .failed("No peer discovered")
     }
 
-    let releaseReport = await bluetooth.releaseAll()
+    let releaseReport = await bluetooth.forgetAll()
     guard releaseReport.ok else {
       return .failed("Local release failed: \(releaseReport.message)")
     }
